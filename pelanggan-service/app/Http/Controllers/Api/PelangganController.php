@@ -48,13 +48,11 @@ class PelangganController extends Controller
             'pendaftaran_id' => 'nullable|string|max:100',
         ]);
 
-        // Validasi unit
         $unitResponse = Http::timeout(3)->get(env('UNIT_SERVICE_URL') . "/api/units/{$validated['unit_id']}");
         if ($unitResponse->failed()) {
             return response()->json(['status' => 'error', 'message' => 'Unit tidak ditemukan'], 404);
         }
 
-        // Validasi harga paket (jika ada)
         if (!empty($validated['harga_paket_id'])) {
             $paketResponse = Http::timeout(3)->get(env('HARGA_PAKET_SERVICE_URL') . "/api/harga-paket/{$validated['harga_paket_id']}");
             if ($paketResponse->failed()) {
@@ -62,12 +60,10 @@ class PelangganController extends Controller
             }
         }
 
-        // Generate kode pelanggan otomatis
         $last = Pelanggan::orderByDesc('id')->first();
         $nextId = $last ? $last->id + 1 : 1;
         $kodePelanggan = 'PLG' . str_pad($nextId, 3, '0', STR_PAD_LEFT);
 
-        // Simpan data
         $pelanggan = Pelanggan::create(array_merge($validated, [
             'kode_pelanggan' => $kodePelanggan,
         ]));
@@ -121,7 +117,6 @@ class PelangganController extends Controller
             'pendaftaran_id' => 'nullable|string|max:100',
         ]);
 
-        // Validasi unit (jika diubah)
         if (isset($validated['unit_id'])) {
             $unitResponse = Http::timeout(3)->get(env('UNIT_SERVICE_URL') . "/api/units/{$validated['unit_id']}");
             if ($unitResponse->failed()) {
@@ -129,7 +124,6 @@ class PelangganController extends Controller
             }
         }
 
-        // Validasi harga paket (jika diubah)
         if (isset($validated['harga_paket_id'])) {
             $paketResponse = Http::timeout(3)->get(env('HARGA_PAKET_SERVICE_URL') . "/api/harga-paket/{$validated['harga_paket_id']}");
             if ($paketResponse->failed()) {
@@ -160,31 +154,40 @@ class PelangganController extends Controller
 
     private function formatPelangganData($pelanggan)
     {
-        $unit = null;
-        $harga = null;
+        $unit = ['id' => $pelanggan->unit_id, 'nama' => 'Data unit tidak tersedia'];
+        $harga = ['id' => $pelanggan->harga_paket_id, 'keterangan' => 'Data harga paket tidak tersedia'];
 
-        try {
-            if ($pelanggan->unit_id) {
+        // Ambil data unit
+        if ($pelanggan->unit_id) {
+            try {
                 $response = Http::timeout(3)->get(env('UNIT_SERVICE_URL') . "/api/units/{$pelanggan->unit_id}");
-                if ($response->ok()) {
+                if ($response->successful()) {
                     $json = $response->json();
-                    $unit = $json['data'] ?? $json;
+                    $data = $json['data'] ?? $json;
+                    if (isset($data['nama_unit'])) {
+                        $unit = ['id' => $pelanggan->unit_id, 'nama' => $data['nama_unit']];
+                    }
                 }
+            } catch (\Exception $e) {
+                Log::error("Gagal ambil unit: " . $e->getMessage());
             }
-        } catch (\Exception $e) {
-            Log::error('Unit fetch failed: ' . $e->getMessage());
         }
 
-        try {
-            if ($pelanggan->harga_paket_id) {
+        // Ambil data harga paket (tampilkan lengkap)
+        if ($pelanggan->harga_paket_id) {
+            try {
                 $response = Http::timeout(3)->get(env('HARGA_PAKET_SERVICE_URL') . "/api/harga-paket/{$pelanggan->harga_paket_id}");
-                if ($response->ok()) {
+                if ($response->successful()) {
                     $json = $response->json();
-                    $harga = $json['data'] ?? $json;
+                    $data = $json['data'] ?? $json;
+                    if (isset($data['alias_paket'])) {
+                        $harga = $data;
+                        $harga['id'] = $pelanggan->harga_paket_id;
+                    }
                 }
+            } catch (\Exception $e) {
+                Log::error("Gagal ambil harga paket: " . $e->getMessage());
             }
-        } catch (\Exception $e) {
-            Log::error('Harga fetch failed: ' . $e->getMessage());
         }
 
         return [

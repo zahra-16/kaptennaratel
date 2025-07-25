@@ -1,6 +1,5 @@
-    <?php
+<?php
 
-   // database/migrations/2025_07_19_000000_create_ref_harga_paket_table.php
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -8,7 +7,7 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration {
     public function up(): void {
         Schema::create('ref_harga_paket', function (Blueprint $table) {
-            $table->id('log_key');
+            $table->id('log_key'); // Auto-increment primary key
             $table->string('alias_paket', 150);
             $table->char('paket', 10);
             $table->char('ref_gol', 10);
