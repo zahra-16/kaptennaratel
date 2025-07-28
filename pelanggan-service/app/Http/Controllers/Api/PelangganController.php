@@ -27,32 +27,34 @@ class PelangganController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'nama_pelanggan' => 'required|string|max:100',
-            'unit_id' => 'required|integer',
-            'harga_paket_id' => 'nullable|integer',
-            'alamat_pelanggan' => 'nullable|string|max:200',
-            'telp_user' => 'nullable|string|max:100',
-            'rt' => 'nullable|string|max:10',
-            'rw' => 'nullable|string|max:10',
-            'kelurahan_id' => 'nullable|string|max:150',
-            'kecamatan' => 'nullable|string|max:150',
-            'id_telegram' => 'nullable|string|max:100',
-            'status_log' => 'nullable|string|max:255',
-            'status_followup' => 'nullable|string|max:100',
-            'stts_send_survei' => 'nullable|string|max:255',
-            'log_aktivasi' => 'nullable|date',
-            'va_bri' => 'nullable|string|max:150',
-            'va_bca' => 'nullable|string|max:150',
-            'no_combo' => 'nullable|string|max:100',
-            'log_username_dcp' => 'nullable|string|max:200',
-            'pendaftaran_id' => 'nullable|string|max:100',
+            'nama_pelanggan'     => 'required|string|max:100',
+            'unit_id'            => 'required|integer',
+            'harga_paket_id'     => 'nullable|integer',
+            'alamat_pelanggan'   => 'nullable|string|max:200',
+            'telp_user'          => 'nullable|string|max:100',
+            'rt'                 => 'nullable|string|max:10',
+            'rw'                 => 'nullable|string|max:10',
+            'kelurahan_id'       => 'nullable|string|max:150',
+            'kecamatan'          => 'nullable|string|max:150',
+            'id_telegram'        => 'nullable|string|max:100',
+            'status_log'         => 'nullable|string|max:255',
+            'status_followup'    => 'nullable|string|max:100',
+            'stts_send_survei'   => 'nullable|string|max:255',
+            'log_aktivasi'       => 'nullable|date',
+            'va_bri'             => 'nullable|string|max:150',
+            'va_bca'             => 'nullable|string|max:150',
+            'no_combo'           => 'nullable|string|max:100',
+            'log_username_dcp'   => 'nullable|string|max:200',
+            'pendaftaran_id'     => 'nullable|string|max:100',
         ]);
 
+        // Validasi unit
         $unitResponse = Http::timeout(3)->get(env('UNIT_SERVICE_URL') . "/api/units/{$validated['unit_id']}");
         if ($unitResponse->failed()) {
             return response()->json(['status' => 'error', 'message' => 'Unit tidak ditemukan'], 404);
         }
 
+        // Validasi harga paket jika disertakan
         if (!empty($validated['harga_paket_id'])) {
             $paketResponse = Http::timeout(3)->get(env('HARGA_PAKET_SERVICE_URL') . "/api/harga-paket/{$validated['harga_paket_id']}");
             if ($paketResponse->failed()) {
@@ -60,6 +62,7 @@ class PelangganController extends Controller
             }
         }
 
+        // Buat kode pelanggan otomatis
         $last = Pelanggan::orderByDesc('id')->first();
         $nextId = $last ? $last->id + 1 : 1;
         $kodePelanggan = 'PLG' . str_pad($nextId, 3, '0', STR_PAD_LEFT);
@@ -69,9 +72,9 @@ class PelangganController extends Controller
         ]));
 
         return response()->json([
-            'status' => 'success',
+            'status'  => 'success',
             'message' => 'Pelanggan berhasil ditambahkan',
-            'data' => $this->formatPelangganData($pelanggan),
+            'data'    => $this->formatPelangganData($pelanggan),
         ], 201);
     }
 
@@ -84,7 +87,7 @@ class PelangganController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'data' => $this->formatPelangganData($pelanggan),
+            'data'   => $this->formatPelangganData($pelanggan),
         ]);
     }
 
@@ -96,25 +99,25 @@ class PelangganController extends Controller
         }
 
         $validated = $request->validate([
-            'nama_pelanggan' => 'sometimes|string|max:100',
-            'unit_id' => 'sometimes|integer',
-            'harga_paket_id' => 'nullable|integer',
-            'alamat_pelanggan' => 'nullable|string|max:200',
-            'telp_user' => 'nullable|string|max:100',
-            'rt' => 'nullable|string|max:10',
-            'rw' => 'nullable|string|max:10',
-            'kelurahan_id' => 'nullable|string|max:150',
-            'kecamatan' => 'nullable|string|max:150',
-            'id_telegram' => 'nullable|string|max:100',
-            'status_log' => 'nullable|string|max:255',
-            'status_followup' => 'nullable|string|max:100',
-            'stts_send_survei' => 'nullable|string|max:255',
-            'log_aktivasi' => 'nullable|date',
-            'va_bri' => 'nullable|string|max:150',
-            'va_bca' => 'nullable|string|max:150',
-            'no_combo' => 'nullable|string|max:100',
-            'log_username_dcp' => 'nullable|string|max:200',
-            'pendaftaran_id' => 'nullable|string|max:100',
+            'nama_pelanggan'     => 'sometimes|string|max:100',
+            'unit_id'            => 'sometimes|integer',
+            'harga_paket_id'     => 'nullable|integer',
+            'alamat_pelanggan'   => 'nullable|string|max:200',
+            'telp_user'          => 'nullable|string|max:100',
+            'rt'                 => 'nullable|string|max:10',
+            'rw'                 => 'nullable|string|max:10',
+            'kelurahan_id'       => 'nullable|string|max:150',
+            'kecamatan'          => 'nullable|string|max:150',
+            'id_telegram'        => 'nullable|string|max:100',
+            'status_log'         => 'nullable|string|max:255',
+            'status_followup'    => 'nullable|string|max:100',
+            'stts_send_survei'   => 'nullable|string|max:255',
+            'log_aktivasi'       => 'nullable|date',
+            'va_bri'             => 'nullable|string|max:150',
+            'va_bca'             => 'nullable|string|max:150',
+            'no_combo'           => 'nullable|string|max:100',
+            'log_username_dcp'   => 'nullable|string|max:200',
+            'pendaftaran_id'     => 'nullable|string|max:100',
         ]);
 
         if (isset($validated['unit_id'])) {
@@ -134,9 +137,9 @@ class PelangganController extends Controller
         $pelanggan->update($validated);
 
         return response()->json([
-            'status' => 'success',
+            'status'  => 'success',
             'message' => 'Pelanggan berhasil diperbarui',
-            'data' => $this->formatPelangganData($pelanggan),
+            'data'    => $this->formatPelangganData($pelanggan),
         ]);
     }
 
@@ -157,7 +160,7 @@ class PelangganController extends Controller
         $unit = ['id' => $pelanggan->unit_id, 'nama' => 'Data unit tidak tersedia'];
         $harga = ['id' => $pelanggan->harga_paket_id, 'keterangan' => 'Data harga paket tidak tersedia'];
 
-        // Ambil data unit
+        // Ambil data unit dari service eksternal
         if ($pelanggan->unit_id) {
             try {
                 $response = Http::timeout(3)->get(env('UNIT_SERVICE_URL') . "/api/units/{$pelanggan->unit_id}");
@@ -173,7 +176,7 @@ class PelangganController extends Controller
             }
         }
 
-        // Ambil data harga paket (tampilkan lengkap)
+        // Ambil data harga paket dari service eksternal
         if ($pelanggan->harga_paket_id) {
             try {
                 $response = Http::timeout(3)->get(env('HARGA_PAKET_SERVICE_URL') . "/api/harga-paket/{$pelanggan->harga_paket_id}");
@@ -191,28 +194,28 @@ class PelangganController extends Controller
         }
 
         return [
-            'id' => $pelanggan->id,
-            'kode_pelanggan' => $pelanggan->kode_pelanggan,
-            'nama_pelanggan' => $pelanggan->nama_pelanggan,
-            'alamat' => $pelanggan->alamat_pelanggan,
-            'telp' => $pelanggan->telp_user,
-            'unit' => $unit,
-            'harga_paket' => $harga,
-            'rt' => $pelanggan->rt,
-            'rw' => $pelanggan->rw,
-            'kelurahan_id' => $pelanggan->kelurahan_id,
-            'kecamatan' => $pelanggan->kecamatan,
-            'id_telegram' => $pelanggan->id_telegram,
-            'status_log' => $pelanggan->status_log,
-            'status_followup' => $pelanggan->status_followup,
-            'stts_send_survei' => $pelanggan->stts_send_survei,
-            'log_aktivasi' => $pelanggan->log_aktivasi,
-            'va_bri' => $pelanggan->va_bri,
-            'va_bca' => $pelanggan->va_bca,
-            'no_combo' => $pelanggan->no_combo,
-            'log_username_dcp' => $pelanggan->log_username_dcp,
-            'pendaftaran_id' => $pelanggan->pendaftaran_id,
-            'created_at' => $pelanggan->created_at,
+            'id'                => $pelanggan->id,
+            'kode_pelanggan'    => $pelanggan->kode_pelanggan,
+            'nama_pelanggan'    => $pelanggan->nama_pelanggan,
+            'alamat'            => $pelanggan->alamat_pelanggan,
+            'telp'              => $pelanggan->telp_user,
+            'unit'              => $unit,
+            'harga_paket'       => $harga,
+            'rt'                => $pelanggan->rt,
+            'rw'                => $pelanggan->rw,
+            'kelurahan_id'      => $pelanggan->kelurahan_id,
+            'kecamatan'         => $pelanggan->kecamatan,
+            'id_telegram'       => $pelanggan->id_telegram,
+            'status_log'        => $pelanggan->status_log,
+            'status_followup'   => $pelanggan->status_followup,
+            'stts_send_survei'  => $pelanggan->stts_send_survei,
+            'log_aktivasi'      => $pelanggan->log_aktivasi,
+            'va_bri'            => $pelanggan->va_bri,
+            'va_bca'            => $pelanggan->va_bca,
+            'no_combo'          => $pelanggan->no_combo,
+            'log_username_dcp'  => $pelanggan->log_username_dcp,
+            'pendaftaran_id'    => $pelanggan->pendaftaran_id,
+            'created_at'        => $pelanggan->created_at,
         ];
     }
 }
