@@ -12,7 +12,9 @@ class PelangganController extends Controller
 {
     public function index()
     {
-        $pelangganList = Pelanggan::all();
+        // --- PERBAIKAN: Mengurutkan data dari yang terlama ke terbaru (ASC) ---
+        // Sehingga data yang baru ditambahkan akan muncul di paling bawah.
+        $pelangganList = Pelanggan::orderBy('created_at')->get();
 
         $data = $pelangganList->map(function ($pelanggan) {
             return $this->formatPelangganData($pelanggan);
@@ -26,6 +28,8 @@ class PelangganController extends Controller
 
     public function store(Request $request)
     {
+        Log::info('API Store: Menerima permintaan untuk menambah pelanggan baru.', ['data' => $request->all()]);
+
         $validated = $request->validate([
             'nama_pelanggan'     => 'required|string|max:100',
             'unit_id'            => 'required|integer',
@@ -48,13 +52,11 @@ class PelangganController extends Controller
             'pendaftaran_id'     => 'nullable|string|max:100',
         ]);
 
-        // Validasi unit
         $unitResponse = Http::timeout(3)->get(env('UNIT_SERVICE_URL') . "/api/units/{$validated['unit_id']}");
         if ($unitResponse->failed()) {
             return response()->json(['status' => 'error', 'message' => 'Unit tidak ditemukan'], 404);
         }
 
-        // Validasi harga paket jika disertakan
         if (!empty($validated['harga_paket_id'])) {
             $paketResponse = Http::timeout(3)->get(env('HARGA_PAKET_SERVICE_URL') . "/api/harga-paket/{$validated['harga_paket_id']}");
             if ($paketResponse->failed()) {
@@ -62,14 +64,37 @@ class PelangganController extends Controller
             }
         }
 
-        // Buat kode pelanggan otomatis
-        $last = Pelanggan::orderByDesc('id')->first();
-        $nextId = $last ? $last->id + 1 : 1;
-        $kodePelanggan = 'PLG' . str_pad($nextId, 3, '0', STR_PAD_LEFT);
+        try {
+            $last = Pelanggan::orderByDesc('id')->first();
+            $nextId = $last ? $last->id + 1 : 1;
+            $kodePelanggan = 'PLG' . str_pad($nextId, 3, '0', STR_PAD_LEFT);
 
-        $pelanggan = Pelanggan::create(array_merge($validated, [
-            'kode_pelanggan' => $kodePelanggan,
-        ]));
+            $pelanggan = new Pelanggan();
+            $pelanggan->kode_pelanggan = $kodePelanggan;
+            $pelanggan->nama_pelanggan = $validated['nama_pelanggan'];
+            $pelanggan->unit_id = $validated['unit_id'];
+            $pelanggan->harga_paket_id = $validated['harga_paket_id'] ?? null;
+            $pelanggan->alamat_pelanggan = $validated['alamat_pelanggan'] ?? null;
+            $pelanggan->telp_user = $validated['telp_user'] ?? null;
+            $pelanggan->rt = $validated['rt'] ?? null;
+            $pelanggan->rw = $validated['rw'] ?? null;
+            $pelanggan->kelurahan_id = $validated['kelurahan_id'] ?? null;
+            $pelanggan->kecamatan = $validated['kecamatan'] ?? null;
+            $pelanggan->id_telegram = $validated['id_telegram'] ?? null;
+            $pelanggan->status_log = $validated['status_log'] ?? null;
+            $pelanggan->status_followup = $validated['status_followup'] ?? null;
+            $pelanggan->stts_send_survei = $validated['stts_send_survei'] ?? null;
+            $pelanggan->log_aktivasi = $validated['log_aktivasi'] ?? null;
+            $pelanggan->va_bri = $validated['va_bri'] ?? null;
+            $pelanggan->va_bca = $validated['va_bca'] ?? null;
+            $pelanggan->no_combo = $validated['no_combo'] ?? null;
+            $pelanggan->log_username_dcp = $validated['log_username_dcp'] ?? null;
+            $pelanggan->pendaftaran_id = $validated['pendaftaran_id'] ?? null;
+            $pelanggan->save();
+        } catch (\Exception $e) {
+            Log::error('Gagal menyimpan pelanggan baru: ' . $e->getMessage());
+            return response()->json(['status' => 'error', 'message' => 'Gagal menyimpan pelanggan baru.'], 500);
+        }
 
         return response()->json([
             'status'  => 'success',
@@ -93,6 +118,8 @@ class PelangganController extends Controller
 
     public function update(Request $request, $id)
     {
+        Log::info('API Update: Menerima permintaan untuk memperbarui pelanggan.', ['id' => $id, 'data' => $request->all()]);
+
         $pelanggan = Pelanggan::find($id);
         if (!$pelanggan) {
             return response()->json(['status' => 'error', 'message' => 'Pelanggan tidak ditemukan'], 404);
@@ -160,7 +187,6 @@ class PelangganController extends Controller
         $unit = ['id' => $pelanggan->unit_id, 'nama' => 'Data unit tidak tersedia'];
         $harga = ['id' => $pelanggan->harga_paket_id, 'keterangan' => 'Data harga paket tidak tersedia'];
 
-        // Ambil data unit dari service eksternal
         if ($pelanggan->unit_id) {
             try {
                 $response = Http::timeout(3)->get(env('UNIT_SERVICE_URL') . "/api/units/{$pelanggan->unit_id}");
@@ -176,7 +202,6 @@ class PelangganController extends Controller
             }
         }
 
-        // Ambil data harga paket dari service eksternal
         if ($pelanggan->harga_paket_id) {
             try {
                 $response = Http::timeout(3)->get(env('HARGA_PAKET_SERVICE_URL') . "/api/harga-paket/{$pelanggan->harga_paket_id}");
@@ -194,28 +219,28 @@ class PelangganController extends Controller
         }
 
         return [
-            'id'                => $pelanggan->id,
-            'kode_pelanggan'    => $pelanggan->kode_pelanggan,
-            'nama_pelanggan'    => $pelanggan->nama_pelanggan,
-            'alamat'            => $pelanggan->alamat_pelanggan,
-            'telp'              => $pelanggan->telp_user,
-            'unit'              => $unit,
-            'harga_paket'       => $harga,
-            'rt'                => $pelanggan->rt,
-            'rw'                => $pelanggan->rw,
-            'kelurahan_id'      => $pelanggan->kelurahan_id,
-            'kecamatan'         => $pelanggan->kecamatan,
-            'id_telegram'       => $pelanggan->id_telegram,
-            'status_log'        => $pelanggan->status_log,
-            'status_followup'   => $pelanggan->status_followup,
-            'stts_send_survei'  => $pelanggan->stts_send_survei,
-            'log_aktivasi'      => $pelanggan->log_aktivasi,
-            'va_bri'            => $pelanggan->va_bri,
-            'va_bca'            => $pelanggan->va_bca,
-            'no_combo'          => $pelanggan->no_combo,
-            'log_username_dcp'  => $pelanggan->log_username_dcp,
-            'pendaftaran_id'    => $pelanggan->pendaftaran_id,
-            'created_at'        => $pelanggan->created_at,
+            'id'                 => $pelanggan->id,
+            'kode_pelanggan'     => $pelanggan->kode_pelanggan,
+            'nama_pelanggan'     => $pelanggan->nama_pelanggan,
+            'alamat'             => $pelanggan->alamat_pelanggan,
+            'telp'               => $pelanggan->telp_user,
+            'unit'               => $unit,
+            'harga_paket'        => $harga,
+            'rt'                 => $pelanggan->rt,
+            'rw'                 => $pelanggan->rw,
+            'kelurahan_id'       => $pelanggan->kelurahan_id,
+            'kecamatan'          => $pelanggan->kecamatan,
+            'id_telegram'        => $pelanggan->id_telegram,
+            'status_log'         => $pelanggan->status_log,
+            'status_followup'    => $pelanggan->status_followup,
+            'stts_send_survei'   => $pelanggan->stts_send_survei,
+            'log_aktivasi'       => $pelanggan->log_aktivasi,
+            'va_bri'             => $pelanggan->va_bri,
+            'va_bca'             => $pelanggan->va_bca,
+            'no_combo'           => $pelanggan->no_combo,
+            'log_username_dcp'   => $pelanggan->log_username_dcp,
+            'pendaftaran_id'     => $pelanggan->pendaftaran_id,
+            'created_at'         => $pelanggan->created_at,
         ];
     }
 }

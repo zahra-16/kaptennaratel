@@ -47,54 +47,108 @@ export async function updateUnit(id, data) {
 
 const API_PAKET_BASE_URL = 'http://localhost:8002/api/harga-paket';
 
-// GET all
 export async function getHargaPaket() {
-  const response = await fetch(API_PAKET_BASE_URL);
-  if (!response.ok) throw new Error('Gagal mengambil data harga paket');
-  const result = await response.json();
-  return result.data || result;
+  try {
+    const response = await fetch(API_PAKET_BASE_URL);
+    if (!response.ok) {
+      const errorDetail = await response.text();
+      console.error('API Error: Gagal mengambil data harga paket. Status:', response.status, 'Detail:', errorDetail);
+      throw new Error('Gagal mengambil data harga paket dari server.');
+    }
+    const result = await response.json();
+    console.log('API Success: Data harga paket berhasil diambil.', result);
+    
+    if (result && Array.isArray(result.data)) {
+        return result.data;
+    } else if (Array.isArray(result)) {
+        return result;
+    } else {
+        console.warn('API Warning: Respons harga paket bukan array yang diharapkan. Mengembalikan array kosong.');
+        return [];
+    }
+  } catch (error) {
+    console.error('Kesalahan jaringan atau server:', error);
+    throw new Error('Terjadi kesalahan saat berkomunikasi dengan server harga paket.');
+  }
 }
 
-// GET single
 export async function getSingleHargaPaket(id) {
-  const response = await fetch(`${API_PAKET_BASE_URL}/${id}`);
-  if (!response.ok) throw new Error('Data tidak ditemukan');
-  const result = await response.json();
-  return result.data || result;
+  try {
+    const response = await fetch(`${API_PAKET_BASE_URL}/${id}`);
+    if (!response.ok) {
+      const errorDetail = await response.text();
+      console.error('API Error: Gagal mengambil detail paket. Status:', response.status, 'Detail:', errorDetail);
+      throw new Error('Data paket tidak ditemukan.');
+    }
+    const result = await response.json();
+    console.log('API Success: Detail harga paket berhasil diambil.', result);
+    return result.data || result;
+  } catch (error) {
+    console.error('Kesalahan jaringan atau server:', error);
+    throw new Error('Terjadi kesalahan saat mengambil detail paket.');
+  }
 }
 
-// POST create
 export async function createHargaPaket(data) {
-  const response = await fetch(API_PAKET_BASE_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  });
-  if (!response.ok) throw new Error('Gagal menambah harga paket');
-  return await response.json();
+  try {
+    const response = await fetch(API_PAKET_BASE_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+      const errorDetail = await response.text();
+      console.error('API Error: Gagal menambah harga paket. Status:', response.status, 'Detail:', errorDetail);
+      throw new Error('Gagal menambah harga paket ke server.');
+    }
+    const result = await response.json();
+    console.log('API Success: Harga paket berhasil ditambahkan.', result);
+    return result;
+  } catch (error) {
+    console.error('Kesalahan jaringan atau server:', error);
+    throw new Error('Terjadi kesalahan saat menambah harga paket.');
+  }
 }
 
-// PUT update
 export async function updateHargaPaket(id, data) {
-  const response = await fetch(`${API_PAKET_BASE_URL}/${id}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  });
-  if (!response.ok) throw new Error('Gagal mengubah harga paket');
-  return await response.json();
+  try {
+    const response = await fetch(`${API_PAKET_BASE_URL}/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+      const errorDetail = await response.text();
+      console.error('API Error: Gagal mengubah harga paket. Status:', response.status, 'Detail:', errorDetail);
+      throw new Error('Gagal mengubah harga paket di server.');
+    }
+    const result = await response.json();
+    console.log('API Success: Harga paket berhasil diubah.', result);
+    return result;
+  } catch (error) {
+    console.error('Kesalahan jaringan atau server:', error);
+    throw new Error('Terjadi kesalahan saat mengubah harga paket.');
+  }
 }
 
-// DELETE
 export async function deleteHargaPaket(id) {
-  const response = await fetch(`${API_PAKET_BASE_URL}/${id}`, {
-    method: 'DELETE',
-  });
-  if (!response.ok) throw new Error('Gagal menghapus harga paket');
-  const result = await response.json();
-  return result.message;
+  try {
+    const response = await fetch(`${API_PAKET_BASE_URL}/${id}`, {
+      method: 'DELETE',
+    });
+    if (!response.ok) {
+      const errorDetail = await response.text();
+      console.error('API Error: Gagal menghapus harga paket. Status:', response.status, 'Detail:', errorDetail);
+      throw new Error('Gagal menghapus harga paket dari server.');
+    }
+    const result = await response.json();
+    console.log('API Success: Harga paket berhasil dihapus.', result);
+    return result.message;
+  } catch (error) {
+    console.error('Kesalahan jaringan atau server:', error);
+    throw new Error('Terjadi kesalahan saat menghapus harga paket.');
+  }
 }
-
 
 
 // frontend/api.js/pelanggan
