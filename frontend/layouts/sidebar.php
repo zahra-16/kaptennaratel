@@ -67,15 +67,15 @@
       </a>
     </li>
 
-    <li class="menu-item <?= $title === 'Paket' ? 'active' : '' ?>">
+    <li class="menu-item <?= $current === 'paket.php' ? 'active' : '' ?>">
       <a href="paket.php" class="menu-link">
         <i class="menu-icon tf-icons bx bx-package"></i>
         <div>Paket</div>
       </a>
     </li>
 
-    <li class="menu-item<?= $current === 'customer.php' ? ' active' : '' ?>">
-      <a href="customer.php" class="menu-link">
+    <li class="menu-item<?= $current === 'pelanggan.php' ? ' active' : '' ?>">
+      <a href="pelanggan.php" class="menu-link">
         <i class="menu-icon icon-base bx bx-user"></i>
         <div>Data Pelanggan</div>
       </a>

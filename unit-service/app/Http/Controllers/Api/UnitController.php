@@ -5,47 +5,61 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Unit;
-use Illuminate\Support\Facades\Log; // Import kelas Log
+use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\DB;
 
 class UnitController extends Controller
 {
-    /**
-     * Tampilkan semua unit.
-     * Secara default, diurutkan dari terbaru (DESC)
-     */
-    public function index()
+    public function index(Request $request)
     {
-        // Perbaikan: Menggunakan pengurutan agar data terbaru muncul di atas
-        $units = Unit::orderByDesc('id')->get();
+        $perPage = $request->input('per_page', 10);
 
-        // Perbaikan: Mengembalikan format JSON yang konsisten
+        $units = Unit::orderBy('created_at', 'asc')->paginate($perPage);
+
         return response()->json([
             'status' => 'success',
-            'data' => $units,
+            'data' => $units->items(),
+            'meta' => [
+                'current_page' => $units->currentPage(),
+                'last_page' => $units->lastPage(),
+                'per_page' => $units->perPage(),
+                'total' => $units->total(),
+                'from' => $units->firstItem(),
+                'to' => $units->lastItem(),
+            ],
         ]);
     }
 
-    /**
-     * Simpan unit baru.
-     */
     public function store(Request $request)
     {
-        // Perbaikan: Menambahkan log untuk debugging
         Log::info('API Store Unit: Menerima permintaan untuk menambah unit baru.', ['data' => $request->all()]);
+
+        $kode = strtoupper($request->kode_unit);
+
+        $exists = DB::table('units')
+            ->whereRaw('LOWER(kode_unit) = ?', [strtolower($kode)])
+            ->exists();
+
+        if ($exists) {
+            return response()->json(['status' => 'error', 'message' => 'Kode unit sudah digunakan.'], 422);
+        }
 
         $request->validate([
             'nama_unit' => 'required|string|max:255',
+            'kode_unit' => 'required|string|max:50',
         ]);
 
         try {
-            // Perbaikan: Tidak perlu secara manual memasukkan 'created_at'
-            $unit = Unit::create(['nama_unit' => $request->nama_unit]);
+            $unit = Unit::create([
+                'nama_unit' => $request->nama_unit,
+                'kode_unit' => $kode,
+            ]);
         } catch (\Exception $e) {
             Log::error('Gagal menyimpan unit baru: ' . $e->getMessage());
             return response()->json(['status' => 'error', 'message' => 'Gagal menyimpan unit.'], 500);
         }
 
-        // Perbaikan: Mengembalikan format JSON yang konsisten
         return response()->json([
             'status'  => 'success',
             'message' => 'Unit berhasil ditambahkan',
@@ -53,44 +67,47 @@ class UnitController extends Controller
         ], 201);
     }
 
-    /**
-     * Tampilkan satu unit berdasarkan ID.
-     */
     public function show($id)
     {
         $unit = Unit::find($id);
 
         if (!$unit) {
-            // Perbaikan: Mengembalikan format JSON yang konsisten
             return response()->json(['status' => 'error', 'message' => 'Unit tidak ditemukan'], 404);
         }
 
-        // Perbaikan: Mengembalikan format JSON yang konsisten
         return response()->json(['status' => 'success', 'data' => $unit]);
     }
 
-    /**
-     * Perbarui unit yang ada.
-     */
     public function update(Request $request, $id)
     {
-        // Perbaikan: Menambahkan log untuk debugging
         Log::info('API Update Unit: Menerima permintaan untuk memperbarui unit.', ['id' => $id, 'data' => $request->all()]);
 
         $unit = Unit::find($id);
-
         if (!$unit) {
-            // Perbaikan: Mengembalikan format JSON yang konsisten
             return response()->json(['status' => 'error', 'message' => 'Unit tidak ditemukan'], 404);
+        }
+
+        $kode = strtoupper($request->kode_unit);
+
+        $exists = DB::table('units')
+            ->whereRaw('LOWER(kode_unit) = ?', [strtolower($kode)])
+            ->where('id', '!=', $id)
+            ->exists();
+
+        if ($exists) {
+            return response()->json(['status' => 'error', 'message' => 'Kode unit sudah digunakan.'], 422);
         }
 
         $request->validate([
             'nama_unit' => 'required|string|max:255',
+            'kode_unit' => 'required|string|max:50',
         ]);
 
-        $unit->update(['nama_unit' => $request->nama_unit]);
+        $unit->update([
+            'nama_unit' => $request->nama_unit,
+            'kode_unit' => $kode,
+        ]);
 
-        // Perbaikan: Mengembalikan format JSON yang konsisten
         return response()->json([
             'status'  => 'success',
             'message' => 'Unit berhasil diperbarui',
@@ -98,21 +115,26 @@ class UnitController extends Controller
         ]);
     }
 
-    /**
-     * Hapus unit.
-     */
     public function destroy($id)
     {
         $unit = Unit::find($id);
 
         if (!$unit) {
-            // Perbaikan: Mengembalikan format JSON yang konsisten
             return response()->json(['status' => 'error', 'message' => 'Unit tidak ditemukan'], 404);
         }
 
         $unit->delete();
 
-        // Perbaikan: Mengembalikan format JSON yang konsisten
         return response()->json(['status' => 'success', 'message' => 'Unit berhasil dihapus']);
+    }
+
+    public function all()
+    {
+        $allUnits = Unit::orderBy('kode_unit')->get();
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $allUnits
+        ]);
     }
 }

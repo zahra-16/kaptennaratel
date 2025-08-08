@@ -3,11 +3,28 @@
 const API_BASE_URL = 'http://localhost:8001/api/units';
 
 // GET
-export async function getUnits() {
-  const response = await fetch(API_BASE_URL);
+export async function getUnits(page = 1, perPage = 10) {
+  const response = await fetch(`${API_BASE_URL}?page=${page}&per_page=${perPage}`);
   if (!response.ok) throw new Error('Gagal mengambil data unit');
   const result = await response.json();
-  return result.data || result;
+  return {
+    data: result.data || [],
+    meta: result.meta || {
+      current_page: 1,
+      last_page: 1,
+      total: 0,
+      per_page: perPage,
+      from: 1,
+      to: 1,
+    }
+  };
+}
+
+export async function getAllUnits() {
+  const response = await fetch(`${API_BASE_URL}/all`);
+  if (!response.ok) throw new Error('Gagal mengambil semua unit');
+  const result = await response.json();
+  return { data: result.data || [] };
 }
 
 // DELETE
@@ -47,29 +64,41 @@ export async function updateUnit(id, data) {
 
 const API_PAKET_BASE_URL = 'http://localhost:8002/api/harga-paket';
 
-export async function getHargaPaket() {
+export async function getHargaPaket(page = 1, perPage = 10) {
   try {
-    const response = await fetch(API_PAKET_BASE_URL);
+    const response = await fetch(`${API_PAKET_BASE_URL}?page=${page}&per_page=${perPage}`);
     if (!response.ok) {
       const errorDetail = await response.text();
       console.error('API Error: Gagal mengambil data harga paket. Status:', response.status, 'Detail:', errorDetail);
       throw new Error('Gagal mengambil data harga paket dari server.');
     }
+
     const result = await response.json();
     console.log('API Success: Data harga paket berhasil diambil.', result);
-    
-    if (result && Array.isArray(result.data)) {
-        return result.data;
-    } else if (Array.isArray(result)) {
-        return result;
-    } else {
-        console.warn('API Warning: Respons harga paket bukan array yang diharapkan. Mengembalikan array kosong.');
-        return [];
-    }
+
+    // Ambil langsung dari result
+    return {
+      data: result.data || [],
+      current_page: result.current_page || 1,
+      last_page: result.last_page || 1,
+      total: result.total || 0,
+    };
   } catch (error) {
     console.error('Kesalahan jaringan atau server:', error);
-    throw new Error('Terjadi kesalahan saat berkomunikasi dengan server harga paket.');
+    return {
+      data: [],
+      current_page: 1,
+      last_page: 1,
+      total: 0,
+    };
   }
+}
+
+export async function getAllHargaPaket() {
+  const response = await fetch(`${API_PAKET_BASE_URL}/all`);
+  if (!response.ok) throw new Error('Gagal mengambil semua harga paket');
+  const result = await response.json();
+  return { data: result.data || [] };
 }
 
 export async function getSingleHargaPaket(id) {
@@ -156,12 +185,17 @@ export async function deleteHargaPaket(id) {
 const API_PELANGGAN_BASE_URL = 'http://localhost:8003/api/pelanggan';
 
 // GET all
-export async function getPelanggan() {
-  const response = await fetch(API_PELANGGAN_BASE_URL);
+export async function getPelanggan(page = 1, perPage = 10) {
+  const response = await fetch(`${API_PELANGGAN_BASE_URL}?page=${page}&per_page=${perPage}`);
   if (!response.ok) throw new Error('Gagal mengambil data pelanggan');
   const result = await response.json();
-  // Ensure we return the data array if it's nested under 'data'
-  return result.data || result;
+
+  return {
+    data: result.data ?? [],
+    current_page: result.current_page ?? 1,
+    last_page: result.last_page ?? 1,
+    total: result.total ?? 0,
+  };
 }
 
 // GET single
@@ -169,8 +203,7 @@ export async function getSinglePelanggan(id) {
   const response = await fetch(`${API_PELANGGAN_BASE_URL}/${id}`);
   if (!response.ok) throw new Error('Data tidak ditemukan');
   const result = await response.json();
-  // Ensure we return the data object if it's nested under 'data'
-  return result.data || result;
+  return result.data;
 }
 
 // POST create

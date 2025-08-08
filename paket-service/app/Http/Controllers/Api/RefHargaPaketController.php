@@ -12,15 +12,17 @@ class RefHargaPaketController extends Controller
     /**
      * Tampilkan semua data harga paket.
      */
-    public function index()
+    public function index(Request $request)
     {
-        // Perbaikan: Mengurutkan data dari yang terbaru ke terlama
-        $pakets = RefHargaPaket::orderByDesc('log_key')->get();
+        $perPage = $request->get('per_page', 10);
+        $data = RefHargaPaket::orderBy('log_key', 'asc')->paginate($perPage);
 
-        // Perbaikan: Mengembalikan format JSON yang konsisten
         return response()->json([
             'status' => 'success',
-            'data' => $pakets,
+            'data' => $data->items(),
+            'current_page' => $data->currentPage(),
+            'last_page' => $data->lastPage(),
+            'total' => $data->total(),
         ]);
     }
 
@@ -29,7 +31,7 @@ class RefHargaPaketController extends Controller
      */
     public function show($id)
     {
-        $paket = RefHargaPaket::find($id);
+        $paket = RefHargaPaket::where('log_key', $id)->first();
 
         if (!$paket) {
             // Perbaikan: Mengembalikan format JSON yang konsisten untuk error
@@ -71,7 +73,7 @@ class RefHargaPaketController extends Controller
             Log::error('Gagal menyimpan paket baru: ' . $e->getMessage());
             return response()->json(['status' => 'error', 'message' => 'Gagal menyimpan paket.'], 500);
         }
-        
+
         // Perbaikan: Mengembalikan format JSON yang konsisten
         return response()->json([
             'status' => 'success',
@@ -88,7 +90,7 @@ class RefHargaPaketController extends Controller
         // Perbaikan: Menambahkan log untuk debugging
         Log::info('API Update Harga Paket: Menerima permintaan untuk memperbarui data paket.', ['id' => $id, 'data' => $request->all()]);
 
-        $paket = RefHargaPaket::find($id);
+        $paket = RefHargaPaket::where('log_key', $id)->first();
 
         if (!$paket) {
             // Perbaikan: Mengembalikan format JSON yang konsisten untuk error
@@ -123,7 +125,7 @@ class RefHargaPaketController extends Controller
      */
     public function destroy($id)
     {
-        $paket = RefHargaPaket::find($id);
+        $paket = RefHargaPaket::where('log_key', $id)->first();
 
         if (!$paket) {
             // Perbaikan: Mengembalikan format JSON yang konsisten untuk error
@@ -134,5 +136,15 @@ class RefHargaPaketController extends Controller
 
         // Perbaikan: Mengembalikan format JSON yang konsisten
         return response()->json(['status' => 'success', 'message' => 'Paket berhasil dihapus']);
+    }
+
+    public function all()
+    {
+        $allHargaPaket = RefHargaPaket::orderBy('alias_paket')->get();
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $allHargaPaket
+        ]);
     }
 }

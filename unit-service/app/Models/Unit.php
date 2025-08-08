@@ -8,10 +8,11 @@ class Unit extends Model
 {
     protected $table = 'units';
     protected $primaryKey = 'id';
-    public $timestamps = false;
+    public $timestamps = true;
 
     protected $fillable = [
         'nama_unit',
+        'kode_unit',
         'created_at',
     ];
 }

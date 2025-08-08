@@ -8,6 +8,8 @@ class RefHargaPaket extends Model
 {
     protected $table = 'ref_harga_paket';
     protected $primaryKey = 'log_key';
+    public $incrementing = true;
+    protected $keyType = 'int';
     public $timestamps = false;
 
     protected $fillable = [

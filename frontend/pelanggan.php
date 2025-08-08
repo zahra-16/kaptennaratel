@@ -22,7 +22,7 @@ ob_start();
           <th>Status</th>
           <th>Paket</th>
           <th>Tipe Paket</th>
-          <th>Aksi</th>
+          <th>Action</th>
         </tr>
       </thead>
       <tbody id="pelanggan-body">
@@ -31,6 +31,12 @@ ob_start();
         </tr>
       </tbody>
     </table>
+    <div class="d-flex flex-column align-items-center p-3">
+      <nav>
+        <ul class="pagination justify-content-center mt-3" id="pagination"></ul>
+        <div class="text-center small text-muted mt-2" id="pagination-info"></div>
+      </nav>
+    </div>
   </div>
 </div>
 
@@ -82,8 +88,8 @@ ob_start();
         <div class="col-md-6">
           <label for="status-log" class="form-label">Status</label>
           <select class="form-select" id="status-log">
-            <option value="Aktif">Aktif</option>
-            <option value="Nonaktif">Nonaktif</option>
+            <option value="enable">enable</option>
+            <option value="disable">disable</option>
           </select>
         </div>
         <div class="col-md-6">
@@ -137,10 +143,16 @@ ob_start();
     createPelanggan, 
     updatePelanggan, 
     deletePelanggan, 
-    getSinglePelanggan 
-  } from './api.js/pelanggan.js';
-  import { getUnits } from './api.js/units.js';
-  import { getHargaPaket } from './api.js/paket.js';
+    getSinglePelanggan,
+    getAllUnits,
+    getAllHargaPaket
+  } from './api.js';
+
+  function removeEmptyFields(obj) {
+    return Object.fromEntries(
+      Object.entries(obj).filter(([_, v]) => v !== null && v !== '')
+    );
+  }
 
   const pelangganBody = document.getElementById('pelanggan-body');
   const modalPelanggan = new bootstrap.Modal(document.getElementById('modal-pelanggan'));
@@ -198,45 +210,108 @@ ob_start();
     });
   }
 
-  async function fetchAndDisplayAllData() {
+  let currentPage = 1;
+const perPage = 10;
+
+  async function fetchAndDisplayAllData(page = 1) {
     pelangganBody.innerHTML = '<tr><td colspan="9" class="text-center text-muted">Memuat data...</td></tr>';
     try {
       const [fetchedUnits, fetchedHargaPaket] = await Promise.all([
-        getUnits(),
-        getHargaPaket()
+        getAllUnits(),
+        getAllHargaPaket()
       ]);
 
-      units = fetchedUnits;
-      hargaPaket = fetchedHargaPaket;
+      units = fetchedUnits.data;
+      hargaPaket = fetchedHargaPaket.data;
 
-      populateSelect(unitId, units, 'id', 'nama_unit');
+      populateSelect(unitId, units, 'id', 'kode_unit', 'nama_unit');
       populateSelect(hargaPaketId, hargaPaket, 'log_key', 'alias_paket', 'total_amount');
 
-      const pelangganData = await getPelanggan();
-      renderPelangganTable(pelangganData);
+      const result = await getPelanggan(page, perPage);
+      const pelangganList = Array.isArray(result.data) ? result.data : [];
 
+      renderPelangganTable(pelangganList, page);
+      renderPagination(result.current_page, result.last_page);
     } catch (error) {
-      console.error('Terjadi kesalahan fatal saat memuat data utama:', error);
-      pelangganBody.innerHTML = '<tr><td colspan="9" class="text-center text-danger">Gagal memuat data. Periksa konsol untuk detail.</td></tr>';
+      console.error('Terjadi kesalahan saat memuat data:', error);
+      pelangganBody.innerHTML = '<tr><td colspan="9" class="text-center text-danger">Gagal memuat data.</td></tr>';
+      document.getElementById('pagination').innerHTML = '';
     }
   }
 
+  function renderPagination(current, last) {
+    const groupSize = 3;
+    const currentGroup = Math.floor((current - 1) / groupSize);
+    const startPage = currentGroup * groupSize + 1;
+    const endPage = Math.min(startPage + groupSize - 1, last);
+
+    let html = '';
+
+    // Tombol « (grup sebelumnya)
+    if (startPage > 1) {
+      html += `
+        <li class="page-item">
+          <a class="page-link rounded-0 border" href="#" data-page="${startPage - 1}">&laquo;</a>
+        </li>
+      `;
+    }
+
+    // Nomor halaman
+    for (let i = startPage; i <= endPage; i++) {
+      html += `
+        <li class="page-item ${i === current ? 'active' : ''}">
+          <a class="page-link rounded-0 border" href="#" data-page="${i}">${i}</a>
+        </li>
+      `;
+    }
+
+    // Tombol » (grup berikutnya)
+    if (endPage < last) {
+      html += `
+        <li class="page-item">
+          <a class="page-link rounded-0 border" href="#" data-page="${endPage + 1}">&raquo;</a>
+        </li>
+      `;
+    }
+
+    const paginationEl = document.getElementById('pagination');
+    const infoEl = document.getElementById('pagination-info');
+
+    if (paginationEl) paginationEl.innerHTML = html;
+    if (infoEl) infoEl.textContent = `Page ${current} of ${last}`;
+
+    // Event listener untuk klik halaman
+    document.querySelectorAll('#pagination .page-link').forEach(link => {
+      link.addEventListener('click', e => {
+        e.preventDefault();
+        const page = parseInt(e.target.dataset.page);
+        if (!isNaN(page) && page !== currentPage) {
+          currentPage = page;
+          fetchAndDisplayAllData(currentPage);
+        }
+      });
+    });
+  }
+
   function renderPelangganTable(data) {
-    pelangganBody.innerHTML = '';
     if (!Array.isArray(data) || data.length === 0) {
       pelangganBody.innerHTML = '<tr><td colspan="9" class="text-center text-muted">Tidak ada data pelanggan.</td></tr>';
       return;
     }
 
+    pelangganBody.innerHTML = '';
+
     data.forEach((pelanggan, index) => {
       const unit = units.find(u => u.id == (pelanggan.unit_id || pelanggan.unit?.id));
-      const unitName = unit ? unit.nama_unit : '-';
+      const unitName = unit ? `[${unit.kode_unit}] - ${unit.nama_unit}` : '-';
 
       const paket = hargaPaket.find(p => p.log_key == (pelanggan.harga_paket_id || pelanggan.harga_paket?.id));
       const packageName = paket ? paket.alias_paket : '-';
       const packageType = paket ? paket.jenis_paket : '-';
       
-      const statusBadgeClass = pelanggan.status_log === 'Aktif' ? 'bg-success' : 'bg-secondary';
+      const isEnable = pelanggan.status_log === 'enable';
+      const statusBadgeClass = isEnable ? 'bg-success' : 'bg-danger';
+      const statusLabel = isEnable ? 'enable' : 'disable';
 
       const row = `
         <tr>
@@ -245,13 +320,13 @@ ob_start();
           <td>${pelanggan.telp_user || pelanggan.telp || '-'}</td>
           <td>${pelanggan.alamat_pelanggan || pelanggan.alamat || '-'}</td>
           <td>${unitName}</td>
-          <td><span class="badge ${statusBadgeClass}">${pelanggan.status_log || '-'}</span></td>
+          <td><span class="badge ${statusBadgeClass}">${statusLabel}</span></td>
           <td>${packageName}</td>
           <td>${packageType}</td>
           <td>
             <div class="dropdown">
               <button class="btn btn-sm btn-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                Aksi
+                Action
               </button>
               <ul class="dropdown-menu">
                 <li><a href="#" class="dropdown-item text-warning btn-edit" data-id="${pelanggan.id}">Edit</a></li>
@@ -270,18 +345,17 @@ ob_start();
   async function fillFormForEdit(id) {
     try {
       const pelanggan = await getSinglePelanggan(id);
-      if (!pelanggan) {
+
+      if (!pelanggan || typeof pelanggan !== 'object') {
         alert('Data pelanggan tidak ditemukan.');
         return;
       }
-      
+
       modalLabel.textContent = 'Edit Pelanggan';
       pelangganId.value = pelanggan.id;
       namaPelanggan.value = pelanggan.nama_pelanggan || '';
-      
       telpUser.value = pelanggan.telp_user || pelanggan.telp || '';
       alamatPelanggan.value = pelanggan.alamat_pelanggan || pelanggan.alamat || '';
-      
       rt.value = pelanggan.rt || '';
       rw.value = pelanggan.rw || '';
       kelurahanId.value = pelanggan.kelurahan_id || '';
@@ -290,14 +364,12 @@ ob_start();
       populateSelect(unitId, units, 'id', 'nama_unit');
       populateSelect(hargaPaketId, hargaPaket, 'log_key', 'alias_paket', 'total_amount');
 
-      unitId.value = pelanggan.unit_id || pelanggan.unit?.id || '';
-      hargaPaketId.value = pelanggan.harga_paket_id || pelanggan.harga_paket?.id || '';
-      
+      unitId.value = pelanggan.unit?.id || '';
+      hargaPaketId.value = pelanggan.harga_paket?.id || '';
+
       statusLog.value = pelanggan.status_log || '';
       statusFollowup.value = pelanggan.status_followup || '';
-
       sttsSendSurvei.value = pelanggan.stts_send_survei || '';
-      
       logAktivasi.value = pelanggan.log_aktivasi ? new Date(pelanggan.log_aktivasi).toISOString().slice(0, 16) : '';
       vaBri.value = pelanggan.va_bri || '';
       vaBca.value = pelanggan.va_bca || '';
@@ -305,11 +377,13 @@ ob_start();
       logUsernameDcp.value = pelanggan.log_username_dcp || '';
       pendaftaranId.value = pelanggan.pendaftaran_id || '';
       idTelegram.value = pelanggan.id_telegram || '';
-      
-      modalPelanggan.show();
+
+      setTimeout(() => {
+        modalPelanggan.show();
+      }, 10);
     } catch (error) {
       console.error('Gagal memuat data untuk edit:', error);
-      alert('Gagal memuat data pelanggan untuk diedit. Silakan coba lagi.');
+      alert('Gagal memuat data pelanggan untuk diedit. ' + error.message);
     }
   }
 
@@ -344,11 +418,10 @@ ob_start();
   formPelanggan.addEventListener('submit', async (e) => {
     e.preventDefault();
 
-    const data = {
+    let data = {
       nama_pelanggan: namaPelanggan.value,
       telp_user: telpUser.value,
       alamat_pelanggan: alamatPelanggan.value,
-
       rt: rt.value,
       rw: rw.value,
       kelurahan_id: kelurahanId.value,
@@ -357,9 +430,7 @@ ob_start();
       harga_paket_id: hargaPaketId.value,
       status_log: statusLog.value,
       status_followup: statusFollowup.value,
-
       stts_send_survei: sttsSendSurvei.value,
-
       log_aktivasi: logAktivasi.value ? new Date(logAktivasi.value).toISOString() : null,
       va_bri: vaBri.value,
       va_bca: vaBca.value,
@@ -368,6 +439,9 @@ ob_start();
       pendaftaran_id: pendaftaranId.value,
       id_telegram: idTelegram.value,
     };
+
+    // Buat hanya kirim data yang diisi saja
+    data = removeEmptyFields(data);
 
     try {
       if (pelangganId.value) {
@@ -389,7 +463,7 @@ ob_start();
   btnTambah.addEventListener('click', () => {
     modalLabel.textContent = 'Tambah Pelanggan';
     formPelanggan.reset();
-    populateSelect(unitId, units, 'id', 'nama_unit');
+    populateSelect(unitId, units, 'id', 'kode_unit', 'nama_unit');
     populateSelect(hargaPaketId, hargaPaket, 'log_key', 'alias_paket', 'total_amount');
   });
 
