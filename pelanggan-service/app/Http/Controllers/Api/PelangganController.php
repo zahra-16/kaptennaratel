@@ -10,19 +10,21 @@ use Illuminate\Support\Facades\Log;
 
 class PelangganController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        // --- PERBAIKAN: Mengurutkan data dari yang terlama ke terbaru (ASC) ---
-        // Sehingga data yang baru ditambahkan akan muncul di paling bawah.
-        $pelangganList = Pelanggan::orderBy('created_at')->get();
+        $perPage = $request->get('per_page', 10);
+        $pelangganList = Pelanggan::orderBy('created_at')->paginate($perPage);
 
-        $data = $pelangganList->map(function ($pelanggan) {
+        $formatted = $pelangganList->getCollection()->map(function ($pelanggan) {
             return $this->formatPelangganData($pelanggan);
         });
 
         return response()->json([
             'status' => 'success',
-            'data' => $data,
+            'data' => $formatted,
+            'current_page' => $pelangganList->currentPage(),
+            'last_page' => $pelangganList->lastPage(),
+            'total' => $pelangganList->total(),
         ]);
     }
 

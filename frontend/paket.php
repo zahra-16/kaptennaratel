@@ -32,6 +32,10 @@ ob_start();
         </tr>
       </tbody>
     </table>
+    <nav>
+      <ul class="pagination justify-content-center mt-3" id="pagination"></ul>
+      <div class="text-center small text-muted mt-2" id="pagination-info"></div>
+    </nav>
   </div>
 </div>
 
@@ -79,8 +83,8 @@ ob_start();
         <div class="mb-3">
           <label class="form-label">Status</label>
           <select class="form-control" id="status">
-            <option value="aktif">Aktif</option>
-            <option value="nonaktif">Nonaktif</option>
+            <option value="enable">enable</option>
+            <option value="disable">disable</option>
           </select>
         </div>
       </div>
@@ -98,7 +102,7 @@ ob_start();
     createHargaPaket,
     updateHargaPaket,
     deleteHargaPaket,
-  } from '/api.js/paket';
+  } from './api.js';
 
   const tableBody = document.getElementById('paket-body');
   const btnTambah = document.getElementById('btn-tambah');
@@ -120,20 +124,78 @@ ob_start();
 
   let editMode = false;
 
-  function loadData() {
+  let currentPage = 1;
+  const perPage = 10;
+
+  function renderPagination(current, last) {
+    const groupSize = 3;
+    const currentGroup = Math.floor((current - 1) / groupSize);
+    const startPage = currentGroup * groupSize + 1;
+    const endPage = Math.min(startPage + groupSize - 1, last);
+
+    let html = '';
+
+    // Tombol « (ke grup sebelumnya)
+    if (startPage > 1) {
+      html += `
+        <li class="page-item">
+          <a class="page-link rounded-0 border" href="#" data-page="${startPage - 1}">&laquo;</a>
+        </li>
+      `;
+    }
+
+    // Nomor halaman dalam grup
+    for (let i = startPage; i <= endPage; i++) {
+      html += `
+        <li class="page-item ${i === current ? 'active' : ''}">
+          <a class="page-link rounded-0 border" href="#" data-page="${i}">${i}</a>
+        </li>
+      `;
+    }
+
+    // Tombol » (ke grup selanjutnya)
+    if (endPage < last) {
+      html += `
+        <li class="page-item">
+          <a class="page-link rounded-0 border" href="#" data-page="${endPage + 1}">&raquo;</a>
+        </li>
+      `;
+    }
+
+    // Render ke HTML
+    document.getElementById('pagination').innerHTML = html;
+    document.getElementById('pagination-info').textContent = `Page ${current} of ${last}`;
+
+    // Event listener pagination
+    document.querySelectorAll('#pagination .page-link').forEach(link => {
+      link.addEventListener('click', e => {
+        e.preventDefault();
+        const page = parseInt(e.target.dataset.page);
+        if (page !== currentPage) {
+          currentPage = page;
+          loadHargaPaket(page);
+        }
+      });
+    });
+  }
+
+  function loadHargaPaket(page = 1) {
     tableBody.innerHTML = '<tr><td colspan="10" class="text-center">Memuat data...</td></tr>';
-    getHargaPaket()
-      .then(data => {
-        if (!Array.isArray(data) || data.length === 0) {
+    getHargaPaket(page, perPage)
+      .then(result => {
+        const rows = result.data ?? [];
+
+        if (rows.length === 0) {
           tableBody.innerHTML = '<tr><td colspan="10" class="text-center">Tidak ada data ditemukan</td></tr>';
+          document.getElementById('pagination').innerHTML = '';
           return;
         }
 
         tableBody.innerHTML = '';
-        data.forEach((item, index) => {
+        rows.forEach((item, index) => {
           const row = `
             <tr>
-              <td>${index + 1}</td>
+              <td>${(page - 1) * perPage + index + 1}</td>
               <td>${item.alias_paket}</td>
               <td>Rp ${parseFloat(item.total_amount).toLocaleString()}</td>
               <td>Rp ${parseFloat(item.dpp).toLocaleString()}</td>
@@ -141,7 +203,11 @@ ob_start();
               <td>Rp ${parseFloat(item.margin).toLocaleString()}</td>
               <td>${item.paket?.trim() || '-'}</td>
               <td>${item.jenis_paket || '-'}</td>
-              <td><span class="badge bg-${item.status === 'aktif' ? 'success' : 'secondary'}">${item.status}</span></td>
+              <td>
+                <span class="badge bg-${item.status === 'enable' ? 'success' : 'danger'}">
+                  ${item.status}
+                </span>
+              </td>
               <td>
                 <div class="dropdown">
                   <button class="btn btn-sm btn-primary dropdown-toggle" type="button" data-bs-toggle="dropdown">
@@ -162,11 +228,15 @@ ob_start();
           tableBody.insertAdjacentHTML('beforeend', row);
         });
 
+        // Render pagination
+        renderPagination(result.current_page, result.last_page);
+
+        // Event listeners edit & delete
         document.querySelectorAll('.btn-edit').forEach(btn => {
           btn.addEventListener('click', (e) => {
             e.preventDefault();
             const id = btn.dataset.id;
-            const item = data.find(d => d.log_key == id);
+            const item = rows.find(d => d.log_key == id);
             if (item) {
               idInput.value = item.log_key;
               aliasInput.value = item.alias_paket;
@@ -190,7 +260,7 @@ ob_start();
             const id = btn.dataset.id;
             if (confirm('Yakin ingin menghapus data ini?')) {
               await deleteHargaPaket(id);
-              loadData();
+              loadHargaPaket(currentPage); // tetap di page yang sama
             }
           });
         });
@@ -198,6 +268,7 @@ ob_start();
       .catch(err => {
         console.error('Gagal memuat data:', err);
         tableBody.innerHTML = '<tr><td colspan="10" class="text-center text-danger">Gagal memuat data</td></tr>';
+        document.getElementById('pagination').innerHTML = '';
       });
   }
 
@@ -225,7 +296,10 @@ ob_start();
       modal.hide();
       form.reset();
       editMode = false;
-      loadData();
+      loadHargaPaket();
+
+      document.activeElement.blur();
+      btnTambah.focus();
     } catch (err) {
       alert('Terjadi kesalahan: ' + err.message);
     }
@@ -238,7 +312,7 @@ ob_start();
     modalLabel.textContent = 'Tambah Paket';
   });
 
-  loadData();
+  loadHargaPaket();
 </script>
 
 <?php

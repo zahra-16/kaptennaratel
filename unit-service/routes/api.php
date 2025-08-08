@@ -17,8 +17,9 @@ use App\Http\Controllers\Api\UnitController;
 |
 */
 
-Route::apiResource('units', UnitController::class);
+Route::get('/units/all', [UnitController::class, 'all']);
 
+Route::apiResource('units', UnitController::class);
 
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
